@@ -8,7 +8,7 @@ import android.util.Log;
 
 public class MainActivity extends AppCompatActivity {
 
-    final int fileIdentifier = R.drawable.grad;
+    final int fileIdentifier = R.drawable.hand_maze;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
