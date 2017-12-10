@@ -8,7 +8,6 @@ import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
-import android.os.Debug;
 import android.util.Log;
 import android.widget.ImageView;
 
@@ -18,7 +17,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Timer;
 
 /**
  * Created by samuel on 2017-11-28.
@@ -35,7 +33,7 @@ class ImageHandler {
     private static final int RECT_SMOOTH_WIDTH = 2;
 
     //The epsilon value given to the douglas peucker algorithm
-    private static final double EPSILON = 0.01;
+    private static final double EPSILON = 5;
 
     private static final int LINE_DISPLAY_WIDTH = 10;
 
@@ -44,7 +42,6 @@ class ImageHandler {
 
     public ImageHandler(int inputBitmapLocation, Activity activity) {
         Log.v("Log", "Start");
-        Debug.startMethodTracing("sample");
         final long startTime = System.currentTimeMillis();
         left = activity.findViewById(R.id.left);
         right = activity.findViewById(R.id.right);
@@ -52,18 +49,34 @@ class ImageHandler {
         Bitmap inputBitmap = decodeFile(inputBitmapLocation, activity);
         //Convert the bitmap to black and white to prevent necessity of euclidean distance comparison (slower)
         Bitmap greyedBitmap = grayScale(inputBitmap);
+
         Bitmap outputBitmap = cutoffed(greyedBitmap);
         Bitmap smoothedBitmap = rectangularSmooth(outputBitmap);
         List<List<WallPixel>> wallPixels = determineContiguousGroups(smoothedBitmap);
-        Log.v("Log", "List size" + wallPixels.size());
 
+       // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
+       // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
+        left.setImageBitmap(inputBitmap);
+
+        //reset
+        inputBitmap=cutoffed(inputBitmap);
+
+        //wallPixels.set(0, simplify(wallPixels.get(0)));
+        //  wallPixels.set(1, simplify(wallPixels.get(1)));
+        List<List<WallPixel>> wallPixelsBackup = new ArrayList<>(wallPixels);
+        Log.v("Log", "List size" + wallPixels.get(1).size());
+        wallPixels.set(0, simplify(wallPixels.get(0), 0, wallPixels.get(0).size() - 1));
+        wallPixels.set(1, simplify(wallPixels.get(1), 0, wallPixels.get(1).size() - 1));
+        Log.v("Log", "List size" + wallPixels.get(1).size());
 
         inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
         inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
+        right.setImageBitmap(inputBitmap);
         Log.v("Log", "End");
         final long endTime = System.currentTimeMillis();
         Log.v("Log", "Total execution time: " + (endTime - startTime));
-        Debug.stopMethodTracing();
+
+
     }
 
     /**
@@ -82,34 +95,51 @@ class ImageHandler {
         return input;
     }
 
+    public static int PointLineDistance(WallPixel point, WallPixel start, WallPixel end) {
+        if (start.x == end.x) {
+            return (int) point.distanceTo(start);
+        }
+        int n = Math.abs((end.x - start.x) * (start.y - point.y) - (start.x - point.x) * (end.y - start.y));
+        int d = (int) Math.sqrt((end.x - start.x) * (end.x - start.x) + (end.y - start.y) * (end.y - start.y));
+
+        return n / d;
+    }
+
     /**
      * Uses the Douglas-Peucker algorithm to remove points from a curve, simplifying it
      * Assumes that the start point of the line is the first element in the list
      * This is a standard implementation
-     *
-     * @param input
-     * @return
      */
-    private List<Coordinate> simplify(List<Coordinate> input) {
-        double furthestDistance = 0;
-        int furthestIndex = 0;
+    public static List<WallPixel> simplify(List<WallPixel> input, int startIndex, int lastIndex) {
+        int maxDist = 0;
+        int index = startIndex;
 
-        for (int i = 1; i < input.size(); i++) {
-            if (input.get(i).distanceTo(input.get(0)) > furthestDistance) {
-                furthestDistance = input.get(i).distanceTo(input.get(0));
-                furthestIndex = i;
+        for (int i = index + 1; i < lastIndex; ++i) {
+            int dist = PointLineDistance(input.get(i), input.get(startIndex), input.get(lastIndex));
+            if (dist > maxDist) {
+                index = i;
+                maxDist = dist;
             }
         }
+        if (maxDist > EPSILON) {
+            List<WallPixel> res1 = simplify(input, startIndex, index);
+            List<WallPixel> res2 = simplify(input, index, lastIndex);
 
-        if (furthestDistance > EPSILON) {
-            List<Coordinate> reduced1 = simplify(input.subList(0, furthestIndex + 1));
-            List<Coordinate> reduced2 = simplify(input.subList(0, input.size()));
-            List<Coordinate> output = new ArrayList<>(reduced1);
+            List<WallPixel> finalRes = new ArrayList<WallPixel>();
+            for (int i = 0; i < res1.size() - 1; ++i) {
+                finalRes.add(res1.get(i));
+            }
 
-            output.addAll(reduced2.subList(1, reduced2.size()));
-            return output;
+            for (int i = 0; i < res2.size(); ++i) {
+                finalRes.add(res2.get(i));
+            }
+
+            return finalRes;
         } else {
-            return input;
+            List<WallPixel> finalRes = new ArrayList<WallPixel>();
+            finalRes.add(input.get(startIndex));
+            finalRes.add(input.get(lastIndex));
+            return finalRes;
         }
     }
 
