@@ -1,15 +1,16 @@
 package com.lehmann.samuel.mazesolver;
 
+import android.graphics.Point;
+
 /**
  * Created by samuel on 2017-12-01.
  */
 
-public class Coordinate {
-    public int x, y;
+public class Coordinate extends Point {
 
     public Coordinate(int x, int y) {
-        this.x = x;
-        this.y = y;
+        super.x = x;
+        super.y = y;
     }
 
     /**
