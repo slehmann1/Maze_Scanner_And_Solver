@@ -127,11 +127,13 @@ class ImageHandler {
         //Create an array of just the black wall pixels
         int blackPixels = 0;
 
-       
+        int rowWidth = bitmap.getWidth();
+        int[] pixelArray = new int[bitmap.getWidth() * bitmap.getHeight()];
+        bitmap.getPixels(pixelArray, 0, rowWidth, 0, 0, bitmap.getWidth() - 1, bitmap.getHeight() - 1);
 
         for (int x = 0; x < bitmap.getWidth(); x++) {
             for (int y = 0; y < bitmap.getHeight(); y++) {
-                if (bitmap.getPixel(x, y) == Color.BLACK) {
+                if (pixelArray[y * rowWidth + x] == Color.BLACK) {
                     blackPixels++;
                 }
             }
@@ -142,7 +144,7 @@ class ImageHandler {
         int currentPixel = 0;
         for (int x = 0; x < bitmap.getWidth(); x++) {
             for (int y = 0; y < bitmap.getHeight(); y++) {
-                if (bitmap.getPixel(x, y) == Color.BLACK) {
+                if (pixelArray[y * rowWidth + x] == Color.BLACK) {
                     int groupID = determineInitGroupID(x, y, pixels, maxGroupID);
 
                     if (groupID > maxGroupID) {
@@ -381,13 +383,17 @@ class ImageHandler {
         if (RECT_SMOOTH_WIDTH <= 1)
             return inputBitmap;
 
+        int rowWidth = inputBitmap.getWidth();
+        int[] pixelArray = new int[inputBitmap.getWidth() * inputBitmap.getHeight()];
+        inputBitmap.getPixels(pixelArray, 0, rowWidth, 0, 0, inputBitmap.getWidth() - 1, inputBitmap.getHeight() - 1);
+
 
         for (int rectStartX = 0; rectStartX <= inputBitmap.getWidth() - RECT_SMOOTH_WIDTH; rectStartX += RECT_SMOOTH_WIDTH) {
             for (int rectStartY = 0; rectStartY <= inputBitmap.getHeight() - RECT_SMOOTH_WIDTH; rectStartY += RECT_SMOOTH_WIDTH) {
 
                 //Determine what color the square should be set to
                 int color;
-                if (shouldSmoothWhite(inputBitmap, rectStartX, rectStartY)) {
+                if (shouldSmoothWhite(pixelArray, rowWidth, rectStartX, rectStartY)) {
                     color = Color.WHITE;
                 } else {
                     color = Color.BLACK;
@@ -410,13 +416,10 @@ class ImageHandler {
     /**
      * Returns true if the rectangle created from the start x and y and the rectSmoothWidth
      * should be smoothed to white based on half of the pixels in the square being white.
-     * This is for a black and white image
-     *
-     * @param rectStartX
-     * @param rectStartY
-     * @return
+     * This is for a black and white image, as defined by the input pixelArray, created from
+     * getPixels
      */
-    private boolean shouldSmoothWhite(Bitmap inputBitmap, int rectStartX, int rectStartY) {
+    private boolean shouldSmoothWhite(int[] pixelArray, int bitmapWidth, int rectStartX, int rectStartY) {
 
 
         int whiteCount = 0;
@@ -425,9 +428,11 @@ class ImageHandler {
         int pixelArea = RECT_SMOOTH_WIDTH * RECT_SMOOTH_WIDTH;
         int requiredWhites = pixelArea / 2 - 1;
 
+
         for (int x = 0; x < RECT_SMOOTH_WIDTH; x++) {
             for (int y = 0; y < RECT_SMOOTH_WIDTH; y++) {
-                if (inputBitmap.getPixel(rectStartX + x, rectStartY + y) == Color.WHITE) {
+
+                if (pixelArray[(y + rectStartY) * bitmapWidth + (x + rectStartX)] == Color.WHITE) {
                     whiteCount++;
                 } else {
                     blackCount++;
