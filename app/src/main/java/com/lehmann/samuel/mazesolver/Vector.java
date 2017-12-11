@@ -6,7 +6,7 @@ package com.lehmann.samuel.mazesolver;
 
 public class Vector {
 
-    private Coordinate startPoint;
+    public Coordinate startPoint;
     private int length;
     private double direction;
 
@@ -21,6 +21,14 @@ public class Vector {
         this.startPoint = startPoint;
         this.length = length;
         this.direction = direction;
+    }
+
+    public void setLength(int length) {
+        this.length = length;
+    }
+
+    public double getLength() {
+        return length;
     }
 
     public double getDirection() {

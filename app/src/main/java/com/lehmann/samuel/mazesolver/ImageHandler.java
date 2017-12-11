@@ -52,14 +52,16 @@ class ImageHandler {
 
         Bitmap outputBitmap = cutoffed(greyedBitmap);
         Bitmap smoothedBitmap = rectangularSmooth(outputBitmap);
-        List<List<WallPixel>> wallPixels = determineContiguousGroups(smoothedBitmap);
+        WallPixel[] coords = reduceLineWidth(smoothedBitmap);
 
-       // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
-       // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
+        List<List<WallPixel>> wallPixels = determineContiguousGroups(coords, smoothedBitmap.getWidth(), smoothedBitmap.getHeight());
+
+        // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
+        // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
         left.setImageBitmap(inputBitmap);
 
         //reset
-        inputBitmap=cutoffed(inputBitmap);
+        inputBitmap = cutoffed(inputBitmap);
 
         //wallPixels.set(0, simplify(wallPixels.get(0)));
         //  wallPixels.set(1, simplify(wallPixels.get(1)));
@@ -77,6 +79,80 @@ class ImageHandler {
         Log.v("Log", "Total execution time: " + (endTime - startTime));
 
 
+    }
+
+    /**
+     * Reduces the line thickness down to one pixel thick for a wall
+     *
+     * @param inputBitmap
+     * @return
+     */
+    private WallPixel[] reduceLineWidth(Bitmap inputBitmap) {
+        int rowWidth = inputBitmap.getWidth();
+        int[] pixelArray = new int[inputBitmap.getWidth() * inputBitmap.getHeight()];
+        inputBitmap.getPixels(pixelArray, 0, rowWidth, 0, 0, inputBitmap.getWidth() - 1, inputBitmap.getHeight() - 1);
+        List<Vector> vectors = new ArrayList();
+
+        //Setup the initial vectors, 4 directions from every wall
+        for (int x = 0; x < rowWidth; x++) {
+            for (int y = 0; y < inputBitmap.getHeight(); y++) {
+
+                if (pixelArray[y * rowWidth + x] == Color.BLACK) {
+                    for (int i = 0; i > -90; i -= 90) {//results in angles of 0,-90 (right and down)
+                        vectors.add(new Vector(new Coordinate(x, y), 1, i));
+                    }
+                }
+            }
+        }
+
+        //It's important to note, that due to the way the vectors are added, they should be
+        //Alternating horizontal and vertical
+
+        //TODO: This is kind of ugly repeating like this
+
+        //Simplify in x direction
+        for (int i = 0; i < vectors.size() - 1; i += 2) {
+            int length = 1;
+            int index = i;
+            //determine length of vectors in a row
+            while (vectors.get(index).startPoint.y == vectors.get(i).startPoint.y) {
+                length++;
+                index += 2;
+            }
+            //remove colinear vectors
+            //+2 and *2 are to account for presence of y vectors in the list
+            for (int ii = i + 2; ii < i + (length * 2); ii += 2) {
+                vectors.remove(ii);
+            }
+            vectors.get(i).setLength(length);
+        }
+
+        //Simplify in y direction
+        for (int i = 1; i < vectors.size(); i += 2) {
+            int length = 1;
+            int index = i;
+            //determine length of vectors in a collumn
+            while (vectors.get(index).startPoint.x == vectors.get(i).startPoint.x) {
+                length++;
+                index += 2;
+            }
+            //remove colinear vectors
+            //+2 and *2 are to account for presence of x vectors in the list
+            for (int ii = i + 2; ii < i + (length * 2); ii += 2) {
+                vectors.remove(ii);
+            }
+            vectors.get(i).setLength(length);
+        }
+
+        WallPixel[] output = new WallPixel[vectors.size() - 1];
+
+        //At this point it should just be a one pixel line series
+        for (int i = 0; i < vectors.size(); i++) {
+
+            output[i] = new WallPixel(vectors.get(i).startPoint);
+        }
+
+        return output;
     }
 
     /**
@@ -149,7 +225,7 @@ class ImageHandler {
      * @param bitmap
      * @return
      */
-    private List<List<WallPixel>> determineContiguousGroups(Bitmap bitmap) {
+    private List<List<WallPixel>> determineContiguousGroups(WallPixel[] coords, int width, int height) {
 
         int possibleGroupIDs = 0;
         int maxGroupID = -1;
@@ -157,42 +233,27 @@ class ImageHandler {
         //Create an array of just the black wall pixels
         int blackPixels = 0;
 
-        int rowWidth = bitmap.getWidth();
-        int[] pixelArray = new int[bitmap.getWidth() * bitmap.getHeight()];
-        bitmap.getPixels(pixelArray, 0, rowWidth, 0, 0, bitmap.getWidth() - 1, bitmap.getHeight() - 1);
-
-        for (int x = 0; x < bitmap.getWidth(); x++) {
-            for (int y = 0; y < bitmap.getHeight(); y++) {
-                if (pixelArray[y * rowWidth + x] == Color.BLACK) {
-                    blackPixels++;
-                }
-            }
-        }
-        WallPixel[] pixels = new WallPixel[blackPixels];
 
         //Assign initial group ids
         int currentPixel = 0;
-        for (int x = 0; x < bitmap.getWidth(); x++) {
-            for (int y = 0; y < bitmap.getHeight(); y++) {
-                if (pixelArray[y * rowWidth + x] == Color.BLACK) {
-                    int groupID = determineInitGroupID(x, y, pixels, maxGroupID);
+        for (int i = 0; i < coords.length; i++) {
+            int groupID = determineInitGroupID(coords[i].x, coords[i].y, coords, maxGroupID);
 
-                    if (groupID > maxGroupID) {
-                        maxGroupID = groupID;
-                        possibleGroupIDs++;
-                    }
-                    pixels[currentPixel] = new WallPixel(x, y, groupID);
-                    currentPixel++;
-                }
+            if (groupID > maxGroupID) {
+                maxGroupID = groupID;
+                possibleGroupIDs++;
             }
+            coords[currentPixel].setGroupId(groupID);
+            currentPixel++;
         }
+
 
         List<Integer> neighbouringGroupIDs = new ArrayList<>();
 
 
         //Do a second pass
-        for (int i = 0; i < pixels.length; i++) {
-            WallPixel pixel = pixels[i];
+        for (int i = 0; i < coords.length; i++) {
+            WallPixel pixel = coords[i];
 
             //Check neighbours
             for (int x = -1; x < 1; x++) {
@@ -200,7 +261,7 @@ class ImageHandler {
 
                     if (!(x == y && y == 0)) {
 
-                        int id = getPixelGroupID(pixel.x + x, pixel.y + y, pixels);
+                        int id = getPixelGroupID(pixel.x + x, pixel.y + y, coords);
                         if (!neighbouringGroupIDs.contains(id) && id != -1) {
                             // One of the neighbours has a group ID not in the list
                             neighbouringGroupIDs.add(id);
@@ -223,7 +284,7 @@ class ImageHandler {
 
                 //Update the ids in both the checked and the unchecked lists to be the same as the new low id
 
-                updateGroupIDs(pixels, neighbouringGroupIDs, lowestID);
+                updateGroupIDs(coords, neighbouringGroupIDs, lowestID);
             }
 
             neighbouringGroupIDs.clear();
@@ -233,7 +294,7 @@ class ImageHandler {
 
         for (int i = 0; i < possibleGroupIDs; i++) {
             List<WallPixel> groupedList = new ArrayList<>();
-            for (WallPixel pixel : pixels) {
+            for (WallPixel pixel : coords) {
                 if (pixel.groupId == i) {
                     groupedList.add(pixel);
                 }
