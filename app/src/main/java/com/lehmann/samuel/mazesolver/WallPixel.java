@@ -12,6 +12,10 @@ public class WallPixel extends Coordinate {
         super(c.x, c.y);
     }
 
+    public WallPixel(int x, int y) {
+        super(x, y);
+    }
+
     public WallPixel(int x, int y, int groupId) {
         super(x, y);
         this.groupId = groupId;

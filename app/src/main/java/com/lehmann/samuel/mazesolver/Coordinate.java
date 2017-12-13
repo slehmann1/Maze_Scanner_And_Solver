@@ -8,6 +8,8 @@ import android.graphics.Point;
 
 public class Coordinate extends Point {
 
+    final static int PRIME = 3;
+
     public Coordinate(int x, int y) {
         super.x = x;
         super.y = y;
@@ -15,11 +17,33 @@ public class Coordinate extends Point {
 
     /**
      * Returns the distance to another coordinate
+     *
      * @param otherCoord
      * @return
      */
     public double distanceTo(Coordinate otherCoord) {
         return Math.sqrt((otherCoord.x - x) * (otherCoord.x - x) + (otherCoord.y - y) * (otherCoord.y - y));
+    }
+
+    // There should never be a duplicate of any x/y combination, so this is ok
+    @Override
+    public int hashCode() {
+        return super.x + (super.y + 1 * PRIME);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null)
+            return false;
+        if (getClass() != o.getClass())
+            return false;
+        Coordinate c = (Coordinate) o;
+        if (!(super.x == c.x && super.y == c.y)) {
+            return false;
+        }
+        return true;
     }
 
 }

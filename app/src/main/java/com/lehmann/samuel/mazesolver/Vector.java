@@ -1,5 +1,9 @@
 package com.lehmann.samuel.mazesolver;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Created by samuel on 2017-12-05.
  */
@@ -9,6 +13,7 @@ public class Vector {
     public Coordinate startPoint;
     private int length;
     private double direction;
+    private List<Coordinate> connectedIndices;
 
     /**
      * Creates a Vector object
@@ -21,6 +26,15 @@ public class Vector {
         this.startPoint = startPoint;
         this.length = length;
         this.direction = direction;
+        connectedIndices = new ArrayList<>();
+    }
+
+    public List<Coordinate> getConnectedIndices() {
+        return connectedIndices;
+    }
+
+    public void addConnectedIndex(Coordinate connected){
+        connectedIndices.add(connected);
     }
 
     public void setLength(int length) {

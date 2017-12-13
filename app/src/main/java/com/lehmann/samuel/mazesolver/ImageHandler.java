@@ -54,25 +54,14 @@ class ImageHandler {
         Bitmap smoothedBitmap = rectangularSmooth(outputBitmap);
         WallPixel[] coords = reduceLineWidth(smoothedBitmap);
 
-        List<List<WallPixel>> wallPixels = determineContiguousGroups(coords, smoothedBitmap.getWidth(), smoothedBitmap.getHeight());
-
-        // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
-        // inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
+        inputBitmap = drawPoints(smoothedBitmap, coords, Color.BLUE);
         left.setImageBitmap(inputBitmap);
 
-        //reset
-        inputBitmap = cutoffed(inputBitmap);
+        List<List<WallPixel>> wallPixels = determineContiguousGroups(coords, smoothedBitmap.getWidth(), smoothedBitmap.getHeight());
 
-        //wallPixels.set(0, simplify(wallPixels.get(0)));
-        //  wallPixels.set(1, simplify(wallPixels.get(1)));
-        List<List<WallPixel>> wallPixelsBackup = new ArrayList<>(wallPixels);
-        Log.v("Log", "List size" + wallPixels.get(1).size());
         wallPixels.set(0, simplify(wallPixels.get(0), 0, wallPixels.get(0).size() - 1));
-        wallPixels.set(1, simplify(wallPixels.get(1), 0, wallPixels.get(1).size() - 1));
-        Log.v("Log", "List size" + wallPixels.get(1).size());
-
         inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
-        inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
+      //  inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
         right.setImageBitmap(inputBitmap);
         Log.v("Log", "End");
         final long endTime = System.currentTimeMillis();
@@ -81,79 +70,60 @@ class ImageHandler {
 
     }
 
-    /**
-     * Reduces the line thickness down to one pixel thick for a wall
-     *
-     * @param inputBitmap
-     * @return
-     */
+    private int getIndex(int x, int y, int width) {
+        return y * width + x;
+    }
+
     private WallPixel[] reduceLineWidth(Bitmap inputBitmap) {
-        int rowWidth = inputBitmap.getWidth();
+        int width = inputBitmap.getWidth();
+        int height = inputBitmap.getHeight();
+
         int[] pixelArray = new int[inputBitmap.getWidth() * inputBitmap.getHeight()];
-        inputBitmap.getPixels(pixelArray, 0, rowWidth, 0, 0, inputBitmap.getWidth() - 1, inputBitmap.getHeight() - 1);
-        List<Vector> vectors = new ArrayList();
+        inputBitmap.getPixels(pixelArray, 0, width, 0, 0, inputBitmap.getWidth() - 1, inputBitmap.getHeight() - 1);
 
-        //Setup the initial vectors, 4 directions from every wall
-        for (int x = 0; x < rowWidth; x++) {
-            for (int y = 0; y < inputBitmap.getHeight(); y++) {
+        List<WallPixel> wallPixels = new ArrayList();
 
-                if (pixelArray[y * rowWidth + x] == Color.BLACK) {
-                    for (int i = 0; i > -90; i -= 90) {//results in angles of 0,-90 (right and down)
-                        vectors.add(new Vector(new Coordinate(x, y), 1, i));
+        //Create a list of black coordinates
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                boolean shouldAdd = false;
+                if (pixelArray[getIndex(x, y, width)] == Color.BLACK) {
+                    //Check neighbours color
+                    int xCoords[] = new int[]{x - 1, x + 1, x, x};
+                    int yCoords[] = new int[]{y, y, y - 1, y + 1};
+
+
+                    for (int i = 0; i < 4; i++) {
+
+                        if (!(xCoords[i] >= 0 && yCoords[i] >= 0 && xCoords[i] < width && yCoords[i] < height)) {
+                            //it is on an edge, keep it
+                            shouldAdd = true;
+                            break;
+                        }
+                        if (pixelArray[getIndex(xCoords[i], yCoords[i], width)] == Color.WHITE) {
+                            //neighbouring white
+                            shouldAdd = true;
+                            break;
+                        }
+                    }
+
+                    if (shouldAdd) {
+                        WallPixel w = new WallPixel(x, y);
+                        wallPixels.add(w);
                     }
                 }
             }
         }
 
-        //It's important to note, that due to the way the vectors are added, they should be
-        //Alternating horizontal and vertical
-
-        //TODO: This is kind of ugly repeating like this
-
-        //Simplify in x direction
-        for (int i = 0; i < vectors.size() - 1; i += 2) {
-            int length = 1;
-            int index = i;
-            //determine length of vectors in a row
-            while (vectors.get(index).startPoint.y == vectors.get(i).startPoint.y) {
-                length++;
-                index += 2;
-            }
-            //remove colinear vectors
-            //+2 and *2 are to account for presence of y vectors in the list
-            for (int ii = i + 2; ii < i + (length * 2); ii += 2) {
-                vectors.remove(ii);
-            }
-            vectors.get(i).setLength(length);
-        }
-
-        //Simplify in y direction
-        for (int i = 1; i < vectors.size(); i += 2) {
-            int length = 1;
-            int index = i;
-            //determine length of vectors in a collumn
-            while (vectors.get(index).startPoint.x == vectors.get(i).startPoint.x) {
-                length++;
-                index += 2;
-            }
-            //remove colinear vectors
-            //+2 and *2 are to account for presence of x vectors in the list
-            for (int ii = i + 2; ii < i + (length * 2); ii += 2) {
-                vectors.remove(ii);
-            }
-            vectors.get(i).setLength(length);
-        }
-
-        WallPixel[] output = new WallPixel[vectors.size() - 1];
-
-        //At this point it should just be a one pixel line series
-        for (int i = 0; i < vectors.size(); i++) {
-
-            output[i] = new WallPixel(vectors.get(i).startPoint);
-        }
+        //At this point only pixels that are on an edge or have neigbour white pixels are present
+        WallPixel[] output = new WallPixel[wallPixels.size()];
+        output = wallPixels.toArray(output);
 
         return output;
+
     }
+
+
 
     /**
      * Updates the pixels in the bitmap and the list to the color given. This updated bitmap is then
@@ -167,6 +137,22 @@ class ImageHandler {
     Bitmap drawPoints(Bitmap input, List<WallPixel> pixels, int color) {
         for (int i = 1; i < pixels.size(); i++) {
             input.setPixel(pixels.get(i).x, pixels.get(i).y, color);
+        }
+        return input;
+    }
+
+    /**
+     * Updates the pixels in the bitmap and the list to the color given. This updated bitmap is then
+     * returned
+     *
+     * @param input
+     * @param pixels
+     * @param color
+     * @return
+     */
+    Bitmap drawPoints(Bitmap input, WallPixel[] pixels, int color) {
+        for (int i = 1; i < pixels.length; i++) {
+            input.setPixel(pixels[i].x, pixels[i].y, color);
         }
         return input;
     }
@@ -523,7 +509,7 @@ class ImageHandler {
         for (int x = 0; x < RECT_SMOOTH_WIDTH; x++) {
             for (int y = 0; y < RECT_SMOOTH_WIDTH; y++) {
 
-                if (pixelArray[(y + rectStartY) * bitmapWidth + (x + rectStartX)] == Color.WHITE) {
+                if (pixelArray[getIndex(x + rectStartX, y + rectStartY, bitmapWidth)] == Color.WHITE) {
                     whiteCount++;
                 } else {
                     blackCount++;
