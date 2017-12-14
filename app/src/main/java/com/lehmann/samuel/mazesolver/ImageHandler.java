@@ -16,50 +16,66 @@ import java.io.InputStream;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 /**
- * Created by samuel on 2017-11-28.
+ * This class handles a bitmap input and can produce a collection of wall pixel objects (coordinates
+ * with an indication of a contiguous group)
  */
 
 class ImageHandler {
 
     //The highest value that is not cutoff (up to 255)
-    private static final double CUTOFF_MAGNITUDE = 110;
-    private static final int REQUIRED_SIZE = 100;
-
+    private static final double CUTOFF_MAGNITUDE = 125;
+    private static final int REQUIRED_SIZE = 300;
 
     //The width of the rectangle used to smooth
     private static final int RECT_SMOOTH_WIDTH = 2;
 
+    //The minimum number of pixels that must be contiguous to be kept as a wall
+    private static final int MIN_CONTIGUOUS_PIXELS = 20;
+
     //The epsilon value given to the douglas peucker algorithm
-    private static final double EPSILON = 5;
+    private static final double EPSILON = 10;
 
     private static final int LINE_DISPLAY_WIDTH = 10;
 
-    ImageView left, right;
+    ImageView top, bottom;
 
 
     public ImageHandler(int inputBitmapLocation, Activity activity) {
+
         Log.v("Log", "Start");
         final long startTime = System.currentTimeMillis();
-        left = activity.findViewById(R.id.left);
-        right = activity.findViewById(R.id.right);
 
-        Bitmap inputBitmap = decodeFile(inputBitmapLocation, activity);
+        top = activity.findViewById(R.id.top);
+        bottom = activity.findViewById(R.id.bottom);
+
+        Bitmap bitmap = decodeFile(inputBitmapLocation, activity);
+
         //Convert the bitmap to black and white to prevent necessity of euclidean distance comparison (slower)
-        Bitmap greyedBitmap = grayScale(inputBitmap);
+        bitmap = grayScale(bitmap);
+        bitmap = cutoffed(bitmap);
+        bitmap = rectangularSmooth(bitmap);
 
-        Bitmap outputBitmap = cutoffed(greyedBitmap);
-        Bitmap smoothedBitmap = rectangularSmooth(outputBitmap);
-        WallPixel[] coords = reduceLineWidth(smoothedBitmap);
+        WallPixel[] coords = determineEdgePixels(bitmap);
+        List<List<WallPixel>> wallPixels = determineContiguousGroups(coords, bitmap.getWidth(), bitmap.getHeight());
 
-        left.setImageBitmap(inputBitmap);
+        bitmap = drawPoints(bitmap, wallPixels.get(0), Color.BLUE);
+        bitmap = drawPoints(bitmap, wallPixels.get(1), Color.RED);
+        top.setImageBitmap(bitmap);
 
-        List<List<WallPixel>> wallPixels = determineContiguousGroups(coords, smoothedBitmap.getWidth(), smoothedBitmap.getHeight());
+        //simplify the contiguous groups
+        for (int i = 0; i < wallPixels.size(); i++) {
+            wallPixels.set(i, simplify(wallPixels.get(i), 0, wallPixels.get(i).size() - 1));
+        }
 
-        wallPixels.set(0, simplify(wallPixels.get(0), 0, wallPixels.get(0).size() - 1));
-        right.setImageBitmap(inputBitmap);
+        bitmap = grayScale(bitmap);
+        bitmap = drawPoints(bitmap, wallPixels.get(0), Color.BLUE);
+        bitmap = drawPoints(bitmap, wallPixels.get(1), Color.RED);
+        bottom.setImageBitmap(bitmap);
+
         Log.v("Log", "End");
         final long endTime = System.currentTimeMillis();
         Log.v("Log", "Total execution time: " + (endTime - startTime));
@@ -71,7 +87,7 @@ class ImageHandler {
         return y * width + x;
     }
 
-    private WallPixel[] reduceLineWidth(Bitmap inputBitmap) {
+    private WallPixel[] determineEdgePixels(Bitmap inputBitmap) {
         int width = inputBitmap.getWidth();
         int height = inputBitmap.getHeight();
 
@@ -86,11 +102,11 @@ class ImageHandler {
                 boolean shouldAdd = false;
                 if (pixelArray[getIndex(x, y, width)] == Color.BLACK) {
                     //Check neighbours color
-                    int xCoords[] = new int[]{x - 1, x + 1, x, x};
-                    int yCoords[] = new int[]{y, y, y - 1, y + 1};
+                    int xCoords[] = new int[]{x - 1, x + 1, x, x, x - 1, x - 1, x + 1, x + 1};
+                    int yCoords[] = new int[]{y, y, y - 1, y + 1, y - 1, y + 1, y - 1, y + 1};
 
 
-                    for (int i = 0; i < 4; i++) {
+                    for (int i = 0; i < xCoords.length; i++) {
 
                         if (!(xCoords[i] >= 0 && yCoords[i] >= 0 && xCoords[i] < width && yCoords[i] < height)) {
                             //it is on an edge, keep it
@@ -241,15 +257,13 @@ class ImageHandler {
             for (int x = -1; x < 1; x++) {
                 for (int y = -1; y < 1; y++) {
 
-                    if (!(x == y && y == 0)) {
 
-                        int id = getPixelGroupID(pixel.x + x, pixel.y + y, coords);
-                        if (!neighbouringGroupIDs.contains(id) && id != -1) {
-                            // One of the neighbours has a group ID not in the list
-                            neighbouringGroupIDs.add(id);
-                        }
-
+                    int id = getPixelGroupID(pixel.x + x, pixel.y + y, coords);
+                    if (!neighbouringGroupIDs.contains(id) && id != -1) {
+                        // One of the neighbours has a group ID not in the list
+                        neighbouringGroupIDs.add(id);
                     }
+
 
                 }
             }
@@ -258,6 +272,7 @@ class ImageHandler {
             if (neighbouringGroupIDs.size() > 1) {
                 int lowestID = neighbouringGroupIDs.get(0);
                 possibleGroupIDs -= (neighbouringGroupIDs.size() - 1);
+
                 for (int id : neighbouringGroupIDs) {
                     if (lowestID > id) {
                         lowestID = id;
@@ -284,6 +299,14 @@ class ImageHandler {
             output.add(groupedList);
         }
 
+        //Clear small groups
+        for (Iterator<List<WallPixel>> iterator = output.iterator(); iterator.hasNext(); ) {
+            List<WallPixel> wallPixels = iterator.next();
+            if (wallPixels.size() <= MIN_CONTIGUOUS_PIXELS) {
+                iterator.remove();
+            }
+        }
+
         return output;
     }
 
@@ -299,7 +322,7 @@ class ImageHandler {
     private WallPixel[] updateGroupIDs(WallPixel[] pixels, List<Integer> groupIDs, int lowestID) {
         for (int i = 0; i < pixels.length; i++) {
             if (groupIDs.contains(pixels[i].groupId)) {
-                pixels[i].groupId = lowestID;
+                pixels[i].setGroupId(lowestID);
             }
         }
         return pixels;
@@ -534,6 +557,7 @@ class ImageHandler {
      * Converts a colored bitmap to a grayscale bitmap
      *
      * @param inputBitmap
+     * @param contrast    0..10 1 is default
      * @return
      */
     private Bitmap grayScale(Bitmap inputBitmap) {
@@ -547,8 +571,12 @@ class ImageHandler {
         Paint paint = new Paint();
 
         ColorMatrix cm = new ColorMatrix();
-        cm.setSaturation(0);
         ColorMatrixColorFilter f = new ColorMatrixColorFilter(cm);
+        paint.setColorFilter(f);
+        c.drawBitmap(inputBitmap, 0, 0, paint);
+
+        cm.setSaturation(0);
+        f = new ColorMatrixColorFilter(cm);
         paint.setColorFilter(f);
         c.drawBitmap(inputBitmap, 0, 0, paint);
 
