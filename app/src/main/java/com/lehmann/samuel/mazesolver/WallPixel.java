@@ -6,7 +6,7 @@ package com.lehmann.samuel.mazesolver;
 
 public class WallPixel extends Coordinate {
 
-    public int groupId;
+    public int groupId = -1; // Defaults to -1 if not set
 
     public WallPixel(Coordinate c) {
         super(c.x, c.y);

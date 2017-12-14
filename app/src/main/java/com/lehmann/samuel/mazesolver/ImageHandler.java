@@ -54,14 +54,11 @@ class ImageHandler {
         Bitmap smoothedBitmap = rectangularSmooth(outputBitmap);
         WallPixel[] coords = reduceLineWidth(smoothedBitmap);
 
-        inputBitmap = drawPoints(smoothedBitmap, coords, Color.BLUE);
         left.setImageBitmap(inputBitmap);
 
         List<List<WallPixel>> wallPixels = determineContiguousGroups(coords, smoothedBitmap.getWidth(), smoothedBitmap.getHeight());
 
         wallPixels.set(0, simplify(wallPixels.get(0), 0, wallPixels.get(0).size() - 1));
-        inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(0), Color.BLUE);
-      //  inputBitmap = drawPoints(smoothedBitmap, wallPixels.get(1), Color.RED);
         right.setImageBitmap(inputBitmap);
         Log.v("Log", "End");
         final long endTime = System.currentTimeMillis();
@@ -122,7 +119,6 @@ class ImageHandler {
         return output;
 
     }
-
 
 
     /**
@@ -342,6 +338,10 @@ class ImageHandler {
         try {
             for (WallPixel wallPixel : pixels) {
                 if (Math.abs(wallPixel.x - x) <= 1 && Math.abs(wallPixel.y - y) <= 1) {
+                    if (wallPixel.groupId == -1) {
+                        //Not yet set
+                        continue;
+                    }
                     //This is a neighbour
                     return wallPixel.groupId;
                 }
