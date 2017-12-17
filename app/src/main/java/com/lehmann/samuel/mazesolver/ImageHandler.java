@@ -39,46 +39,26 @@ class ImageHandler {
     //The epsilon value given to the douglas peucker algorithm
     private static final double EPSILON = 10;
 
-    private final ImageView top, bottom;
-
+    private Bitmap bitmap;
 
     public ImageHandler(int inputBitmapLocation, Activity activity) {
-
-        Log.v("Log", "Start");
-        final long startTime = System.currentTimeMillis();
-
-        top = activity.findViewById(R.id.top);
-        bottom = activity.findViewById(R.id.bottom);
-
-        Bitmap bitmap = decodeFile(inputBitmapLocation, activity);
+        bitmap = decodeFile(inputBitmapLocation, activity);
 
         //Convert the bitmap to black and white to prevent necessity of euclidean distance comparison (slower)
         bitmap = grayScale(bitmap);
         bitmap = cutoffed(bitmap);
         bitmap = rectangularSmooth(bitmap);
+    }
 
+    public List<List<WallPixel>> getWalls() {
         WallPixel[] coords = determineEdgePixels(bitmap);
         List<List<WallPixel>> wallPixels = determineContiguousGroups(coords);
-
-        bitmap = drawPoints(bitmap, wallPixels.get(0), Color.BLUE);
-        bitmap = drawPoints(bitmap, wallPixels.get(1), Color.RED);
-        top.setImageBitmap(bitmap);
 
         //simplify the contiguous groups
         for (int i = 0; i < wallPixels.size(); i++) {
             wallPixels.set(i, simplify(wallPixels.get(i), 0, wallPixels.get(i).size() - 1));
         }
-
-        bitmap = grayScale(bitmap);
-        bitmap = drawPoints(bitmap, wallPixels.get(0), Color.BLUE);
-        bitmap = drawPoints(bitmap, wallPixels.get(1), Color.RED);
-        bottom.setImageBitmap(bitmap);
-
-        Log.v("Log", "End");
-        final long endTime = System.currentTimeMillis();
-        Log.v("Log", "Total execution time: " + (endTime - startTime));
-
-
+        return wallPixels;
     }
 
     private int getIndex(int x, int y, int width) {
@@ -372,7 +352,6 @@ class ImageHandler {
     }
 
 
-
     // Decodes image and scales it to reduce memory consumption
     private Bitmap decodeFile(int inputBitmapLocation, Activity activity) {
 
@@ -438,7 +417,7 @@ class ImageHandler {
      * @return
      */
     private Bitmap rectangularSmooth(Bitmap inputBitmap) {
-                int rowWidth = inputBitmap.getWidth();
+        int rowWidth = inputBitmap.getWidth();
         int[] pixelArray = new int[inputBitmap.getWidth() * inputBitmap.getHeight()];
         inputBitmap.getPixels(pixelArray, 0, rowWidth, 0, 0, inputBitmap.getWidth() - 1, inputBitmap.getHeight() - 1);
 
