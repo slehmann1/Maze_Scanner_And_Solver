@@ -8,7 +8,7 @@ import android.graphics.Point;
 
 public class Coordinate extends Point {
 
-    final static int PRIME = 3;
+    final static private int PRIME = 3;
 
     public Coordinate(int x, int y) {
         super.x = x;
@@ -28,7 +28,7 @@ public class Coordinate extends Point {
     // There should never be a duplicate of any x/y combination, so this is ok
     @Override
     public int hashCode() {
-        return super.x + (super.y + 1 * PRIME);
+        return super.x + (super.y + PRIME);
     }
 
     @Override
@@ -40,10 +40,7 @@ public class Coordinate extends Point {
         if (getClass() != o.getClass())
             return false;
         Coordinate c = (Coordinate) o;
-        if (!(super.x == c.x && super.y == c.y)) {
-            return false;
-        }
-        return true;
+        return super.x == c.x && super.y == c.y;
     }
 
 }

@@ -1,7 +1,7 @@
 package com.lehmann.samuel.mazesolver;
 
 /**
- * Created by samue on 2017-12-06.
+ * Created by samuel on 2017-12-06.
  */
 
 public class WallPixel extends Coordinate {

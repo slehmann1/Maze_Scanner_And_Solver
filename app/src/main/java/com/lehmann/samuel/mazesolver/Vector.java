@@ -1,19 +1,18 @@
 package com.lehmann.samuel.mazesolver;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
  * Created by samuel on 2017-12-05.
  */
 
-public class Vector {
+class Vector {
 
-    public Coordinate startPoint;
+    private final Coordinate startPoint;
     private int length;
-    private double direction;
-    private List<Coordinate> connectedIndices;
+    private final double direction;
+    private final List<Coordinate> connectedIndices;
 
     /**
      * Creates a Vector object
