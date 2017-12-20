@@ -3,4 +3,9 @@
     <color name="colorPrimary">#3F51B5</color>
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
+    <color name="textColor">#000000</color>
+    <color name="buttonTextColor">#000000</color>
+    <color name="startPinColor">#027b00</color>
+    <color name="endPinColor">#730000</color>
+    <color name="iconColor">#9e9e9e</color>
 </resources>

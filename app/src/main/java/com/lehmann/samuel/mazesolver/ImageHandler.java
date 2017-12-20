@@ -61,6 +61,10 @@ class ImageHandler {
         return wallPixels;
     }
 
+    public Bitmap getSimplifiedBitmap(){
+        return bitmap;
+    }
+
     private int getIndex(int x, int y, int width) {
         return y * width + x;
     }

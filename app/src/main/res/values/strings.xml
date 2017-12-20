@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">MazeSolver</string>
+    <string name="continue_prompt">Continue</string>
+    <string name="startPointPrompt">Select start point</string>
+    <string name="endPointPrompt">Select end point</string>
+    <string name="mazeDescription">Maze Picture</string>
+    <string name="startPointToast">Please set start point</string>
 </resources>
